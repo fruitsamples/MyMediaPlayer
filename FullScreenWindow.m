@@ -1,11 +1,11 @@
 /*
 
-File: MyDocument.h
+File: FullScreenWindow.m
 
-Abstract: Interface file for MyDocument.m, a NSDocument subclass that
-          implements a fullscreen movie player.
+Abstract: NSWindow subclass that handles ESC key or Cmd-period 
+          while in fullscreen mode.
 
-Version: 2.0
+Version: 1.0
 
 Disclaimer: IMPORTANT:  This Apple software is supplied to you by 
 Apple Inc. ("Apple") in consideration of your agreement to the
@@ -49,37 +49,21 @@ Copyright (C) 2009 Apple Inc. All Rights Reserved.
 
 */
 
-#import <Cocoa/Cocoa.h>
+#import "FullScreenWindow.h"
 
-@class QTMovie;
-@class QTMovieView;
-@class FullScreenOverlayWindowController;
+@implementation FullScreenWindow
 
-@interface MyDocument : NSDocument
+- (BOOL)canBecomeKeyWindow
 {
-@private
-	QTMovie								*mMovie;
-	float								mMovieRate;
-	
-	// main movie window
-	IBOutlet NSWindow					*movieWindow;
-	IBOutlet QTMovieView				*movieView;
-	IBOutlet NSButton					*playPauseButton;
-	IBOutlet NSTextField				*durationTextField;
-	
-	// full screen mode
-	BOOL								mFullscreen;
-	NSWindowController					*mFullscreenWindowController;
-	FullScreenOverlayWindowController	*mFullscreenOverlayWindowController;
-	NSScreen							*mFullscreenScreen;
-	NSRect								mSavedMovieViewRect;
-	NSApplicationPresentationOptions	mSavedPresentationOptions;
+	return YES;
 }
 
-@property(readonly) QTMovie *movie;
-@property BOOL movieIsPlaying;
-
-- (IBAction)toggleFullscreen:(id)sender;
+// ESC key or Cmd-period while in fullscreen mode
+- (IBAction)cancelOperation:(id)sender
+{
+	SEL exitFullScreenSelector = @selector(toggleFullscreen:);	
+	id target = [NSApp targetForAction:exitFullScreenSelector to:nil from:sender];
+	[target performSelector:exitFullScreenSelector withObject:sender];
+}
 
 @end
-

@@ -4,7 +4,7 @@ File: MyDocument.m
 
 Abstract: A NSDocument subclass that implements a fullscreen movie player.
 
-Version: 1.0
+Version: 2.0
 
 Disclaimer: IMPORTANT:  This Apple software is supplied to you by 
 Apple Inc. ("Apple") in consideration of your agreement to the
@@ -49,25 +49,121 @@ Copyright (C) 2009 Apple Inc. All Rights Reserved.
 */
 
 #import "MyDocument.h"
+#import "FullScreenWindow.h"
+#import "FullScreenOverlayWindowController.h"
+
+#import <QTKit/QTKit.h>
+
+@interface MyDocument ()
+- (void)handleLoadStateChanged;
+- (void)updateMovieRate;
+@property(getter=isFullscreen) BOOL fullscreen;
+- (void)repositionOverlayWindow;
+@end
 
 @implementation MyDocument
 
--(NSString *)windowNibName 
+- (void)dealloc 
+{
+	// Note that we must not be in fullscreen mode when entering this method, for a variety of reasons
+	// We take care of that in -close below
+	NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+	[nc removeObserver:self name:QTMovieLoadStateDidChangeNotification object:mMovie];
+	[nc removeObserver:self name:QTMovieRateDidChangeNotification object:mMovie];
+    
+	[mMovie release];
+	[mFullscreenWindowController release];
+	[mFullscreenOverlayWindowController release];
+	[mFullscreenScreen release];
+	
+    [super dealloc];
+}
+
+#pragma mark NSDocument overrides
+
+- (void)close
+{
+	[self setFullscreen:NO];
+	
+	[super close];
+}
+
+// Initially, we have only one window.  This may change if we enter fullscreen.
+- (NSString *)windowNibName 
 {
     return @"MyDocument";
 }
 
--(void)dealloc 
+- (void)windowControllerDidLoadNib:(NSWindowController *)windowController
 {
-    /* unregister with notification center */
-	[[NSNotificationCenter defaultCenter] removeObserver:self];
-    
-    [super dealloc];
+	// set the play button to not change its title when it's highlighted
+	NSButtonCell *playPauseButtonCell = (NSButtonCell *)[playPauseButton cell];
+	if ([playPauseButtonCell isKindOfClass:[NSButtonCell class]])
+		[playPauseButtonCell setHighlightsBy:([playPauseButtonCell highlightsBy] & ~NSContentsCellMask)];
 }
 
--(void)handleLoadStateChanged:(QTMovie *)movie 
+- (BOOL)readFromURL:(NSURL *)absoluteURL ofType:(NSString *)typeName error:(NSError **)outError 
 {
-	NSInteger loadState = [[movie attributeForKey:QTMovieLoadStateAttribute] longValue];
+	NSDictionary *attrs = [NSDictionary dictionaryWithObjectsAndKeys: 
+						   absoluteURL, QTMovieURLAttribute, 
+						   /* Set the QTMovieOpenForPlaybackAttribute attribute to indicate that you intend to use movie playback methods (such as -play or -stop, 
+							or corresponding movie view methods such as -play: or -pause:) to control the movie, but do not intend to use other methods that edit,
+							export, or in any way modify the movie. Knowing that you need playback services only may allow QTMovie to use more efficient code paths
+							for some media files. */
+						   [NSNumber numberWithBool:YES], QTMovieOpenForPlaybackAttribute ,
+						   /* Set the QTMovieOpenAsyncRequiredAttribute attribute to indicate that all operations necessary to open the movie file (or other container)
+							and create a valid QTMovie object must occur asynchronously. That is to say, the methods +movieWithAttributes:error: and -initWithAttributes:error: 
+							must return almost immediately, performing any lengthy operations on another thread. Your application can monitor the movie load state to 
+							determine the progress of those operations.*/
+						   [NSNumber numberWithBool:YES], QTMovieOpenAsyncRequiredAttribute,
+						   nil]; 
+
+	[self willChangeValueForKey:@"movie"];
+	mMovie = [[QTMovie alloc] initWithAttributes:attrs error:outError];
+	[self didChangeValueForKey:@"movie"];
+	
+	if (mMovie) {		
+		// Register to receive movie load state and rate change notifications
+		NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+		[nc addObserver:self
+			   selector:@selector(movieLoadStateChanged:) 
+				   name:QTMovieLoadStateDidChangeNotification 
+				 object:mMovie];
+		[nc addObserver:self
+			   selector:@selector(movieRateChanged:) 
+				   name:QTMovieRateDidChangeNotification 
+				 object:mMovie];
+		
+		// Check movie load state immediately in case the movie is available already
+		[self handleLoadStateChanged];
+	}
+	
+	return (mMovie != nil);
+}
+
+- (NSWindow *)windowForSheet
+{
+	return [self isFullscreen] ? [mFullscreenWindowController window] : [super windowForSheet];
+}
+
+#pragma mark Movie
+
+@synthesize movie = mMovie;
+
+- (void)movieLoadStateChanged:(NSNotification *)notification 
+{
+	[self handleLoadStateChanged];
+}
+
+- (void)movieRateChanged:(NSNotification *)notification
+{
+	[self updateMovieRate];
+}
+
+- (void)handleLoadStateChanged
+{
+	QTMovie *movie = [self movie];
+	QTMovieLoadState loadState = [[movie attributeForKey:QTMovieLoadStateAttribute] integerValue];
 
 	/*
 	 The QuickTime movie load states are defined as follows (see QTMovie.h):
@@ -82,293 +178,180 @@ Copyright (C) 2009 Apple Inc. All Rights Reserved.
 	 */
 	
 	if (loadState == QTMovieLoadStateError) {
-		/* what goes here is app-specific */
-		/* you can query QTMovieLoadStateErrorAttribute to get the error code, if it matters */
-		/* for example:
-		/* NSError *err = [movie attributeForKey:QTMovieLoadStateErrorAttribute]; */
-		/* you might also need to undo some operations done in the other state handlers */
+		// What goes here is app-specific:
+		// You can query QTMovieLoadStateErrorAttribute to get the error code, if it matters
+		// If the movie failed to open because it was instantiated with QTMovieOpenAsyncRequiredAttribute and it cannot be opened asynchronously, you can try again without that attribute if you require a movie object.
+		// You might also need to undo some operations done in the other state handlers
+
+		// In this case, we just put up an error dialog and close ourselves (in -loadStateErrorSheetDidEnd:)
+		NSError *err = [movie attributeForKey:QTMovieLoadStateErrorAttribute];
+		[self presentError:err modalForWindow:[self windowForSheet] delegate:self didPresentSelector:@selector(loadStateErrorSheetDidEnd:returnCode:contextInfo:) contextInfo:NULL];
 	}
 	
-	if ((loadState >= QTMovieLoadStateLoaded) && ([mMovieView movie] == nil)) {
-		/* can query properties here */
-		/* for instance, if you need to size a QTMovieView based on the movie's natural size, you can do so now */
-		/* you can also put the movie into a view now, even though no media data might yet be available and hence
-		   nothing will be drawn into the view */
+	if (loadState >= QTMovieLoadStateLoaded) {
+		// Can query properties here
+		// For instance, if you need to size a QTMovieView based on the movie's natural size, you can do so now
 		
-		[mMovieView setMovie:movie];
+		QTTime duration = [movie duration];
+		[durationTextField setStringValue:QTStringFromTime(duration)];
 	}
 	
-	if ((loadState >= QTMovieLoadStatePlayable) && ([movie rate] == 0.0f)) {
-		/* can start movie playing here */
+	if (loadState >= QTMovieLoadStatePlayable) {
+		// Can start movie playing here, if appropriate
+		
+		[movie setRate:mMovieRate];
 	}
 }
 
-/* This method called when the load state of a movie has changed */
--(void)movieLoadStateChanged:(NSNotification *)notification 
+- (void)loadStateErrorSheetDidEnd:(NSAlert *)alert returnCode:(NSInteger)returnCode contextInfo:(void *)contextInfo
 {
-	QTMovie *movie = (QTMovie *)[notification object];
+	[self close];
+}
+
+@dynamic movieIsPlaying;
+- (BOOL)movieIsPlaying
+{
+	return (mMovieRate != 0.f);
+}
+
+- (void)setMovieIsPlaying:(BOOL)movieIsPlaying
+{
+	QTMovie *movie = [self movie];
 	
-	if (movie) {
-		[self handleLoadStateChanged:movie];
-	}
+	// Cache the desired rate in case the movie is not yet playable
+	// If that is the case, we update the movie's rate in -handleLoadStateChanged
+	mMovieRate = movieIsPlaying ? 1.f : 0.f;
+	
+	QTMovieLoadState loadState = [[movie attributeForKey:QTMovieLoadStateAttribute] integerValue];
+	if (loadState >= QTMovieLoadStatePlayable)
+		[movie setRate:mMovieRate];
 }
 
--(void)displayAlertForError:(NSError *)error 
++ (BOOL)automaticallyNotifiesObserversForMovieIsPlaying
 {
-	NSAlert *theAlert = [NSAlert alertWithError:error];
-	/* display the error */
-	[theAlert runModal];
+	// setMovieIsPlaying: does not need to automatically notify key value observers because
+	// the value returned by movieIsPlaying is actually updated in updateMovieRate
+	return NO;
 }
 
--(BOOL)readFromURL:(NSURL *)absoluteURL ofType:(NSString *)typeName error:(NSError **)outError 
+- (void)updateMovieRate
 {
-	NSDictionary *attrs = [NSDictionary dictionaryWithObjectsAndKeys: 
-												absoluteURL, QTMovieURLAttribute, 
-	/* Set the QTMovieOpenForPlaybackAttribute attribute to indicate that you intend to use movie playback methods (such as -play or -stop, 
-	or corresponding movie view methods such as -play: or -pause:) to control the movie, but do not intend to use other methods that edit,
-	export, or in any way modify the movie. Knowing that you need playback services only may allow QTMovie to use more efficient code paths
-	for some media files. */
-						[NSNumber numberWithBool:YES], QTMovieOpenForPlaybackAttribute ,
-	/* Set the QTMovieOpenAsyncRequiredAttribute attribute to indicate that all operations necessary to open the movie file (or other container)
-	and create a valid QTMovie object must occur asynchronously. That is to say, the methods +movieWithAttributes:error: and -initWithAttributes:error: 
-	must return almost immediately, performing any lengthy operations on another thread. Your application can monitor the movie load state to 
-	determine the progress of those operations.*/
-						[NSNumber numberWithBool:YES], QTMovieOpenAsyncRequiredAttribute,
-						nil]; 
-						
-	NSError *error = nil;
-	QTMovie *movie = [QTMovie movieWithAttributes:attrs error:&error];
-	if (movie && !error) {
+	QTMovie *movie = [self movie];
+	
+	[self willChangeValueForKey:@"movieIsPlaying"];
+	mMovieRate = [movie rate];
+	[self didChangeValueForKey:@"movieIsPlaying"];	
+}
+
+#pragma mark Fullscreen
+
+@synthesize fullscreen = mFullscreen;
+
+- (void)setFullscreen:(BOOL)isFullscreen
+{
+	NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+
+	if (isFullscreen == mFullscreen)
+		return;
+	
+	mFullscreen = isFullscreen;
+
+	if (mFullscreen) {
+		// Since we want to ensure that in fullscreen mode we always cover exactly the area of a single screen, register for screen config notifications
+		[nc addObserver:self selector:@selector(screenParametersDidChange:) name:NSApplicationDidChangeScreenParametersNotification object:NSApp];
+
+		mFullscreenScreen = [[movieWindow screen] retain];
+		NSRect screenRect = [mFullscreenScreen frame];
 		
-		/* Check movie load state immediately in case a change occurred */
-		[self handleLoadStateChanged:movie];
+		// Create a window to cover the screen
+		FullScreenWindow *fullscreenWindow = [[[FullScreenWindow alloc] initWithContentRect:screenRect
+																				  styleMask:NSBorderlessWindowMask
+																					backing:NSBackingStoreBuffered
+																					  defer:NO]
+											  autorelease];
+		[fullscreenWindow setBackgroundColor:[NSColor blackColor]];
 		
-		/* Register to receive movie load state change notifications */
-		[[NSNotificationCenter defaultCenter] addObserver:self
-												selector:@selector(movieLoadStateChanged:) 
-													name:QTMovieLoadStateDidChangeNotification 
-												   object:nil];
-		return YES;
+		// Create window controllers for the fullscreen window and control overlay window
+		mFullscreenWindowController = [[NSWindowController alloc] initWithWindow:fullscreenWindow];
+		[self addWindowController:mFullscreenWindowController];
+		mFullscreenOverlayWindowController = [[FullScreenOverlayWindowController alloc] init];
+		[self addWindowController:mFullscreenOverlayWindowController];
+		
+		[fullscreenWindow addChildWindow:[mFullscreenOverlayWindowController window] ordered:NSWindowAbove];
+		
+		[self repositionOverlayWindow];
+		
+		// Move the movie view into fullscreen
+		[[movieView retain] autorelease];  // in case the superview has the only retain
+		[movieView removeFromSuperviewWithoutNeedingDisplay];
+		[[fullscreenWindow contentView] addSubview:movieView];
+		mSavedMovieViewRect = [movieView frame]; // remember the current rect/size
+		[movieView setFrame:[[fullscreenWindow contentView] bounds]];
+		
+		// Bring the fullscreen and overlay windows to the front
+		[movieWindow orderOut:self];
+		[mFullscreenOverlayWindowController showWindow:self];
+		[mFullscreenWindowController showWindow:self];
+		
+		// Hide the dock and menu bar, saving previous presentation options
+		mSavedPresentationOptions = [NSApp presentationOptions];
+		[NSApp setPresentationOptions:(NSApplicationPresentationAutoHideDock | NSApplicationPresentationAutoHideMenuBar)];
 	} else {
-		[self displayAlertForError:error];
-        
-		return NO;
-	}
-}
-
--(IBAction)play:(id)sender 
-{
-	/* play the movie in the QTMovieView */
-	[mMovieView play:sender];
-}
-
--(IBAction)pause:(id)sender 
-{
-	/* pause the movie in the QTMovieView */
-	[[mMovieView movie] stop];
-}
-
--(IBAction)playPauseFullscreenMovie:(id)sender 
-{
-	QTMovie *movie;
-	movie = [mFullscreenMovieView movie];
-	
-	/* toggle the movie play state in the fullscreen view and
-	   set the Play/Pause button title to reflect the current 
-	   play state */
-	   
-	if ([movie rate] != 0.0) {
-		[mPlayPauseFullscreenButton setTitle:@"Play"];
-		[movie stop];
-	} else {
-		[mPlayPauseFullscreenButton setTitle:@"Pause"];
-		[movie play];
-	}
-}
-
--(void)createButtonOverlayWindow 
-{
-	/* create an overlay window with "Exit" and "Play" buttons that
-		will reside on top of the fullscreen movie window */
+		[nc removeObserver:self name:NSApplicationDidChangeScreenParametersNotification object:NSApp];
+		[mFullscreenScreen release];
+		mFullscreenScreen = nil;
 		
-    NSScreen *screen = [[NSScreen screens] objectAtIndex:0];
-    ButtonOverlayWindow *overlayWindow = 
-		[[ButtonOverlayWindow alloc] initWithContentRect:NSMakeRect((NSWidth([screen frame])/2)-150,60,265,70)
-																	styleMask:NSBorderlessWindowMask 
-																	backing:NSBackingStoreBuffered 
-																	defer:YES];
-    [overlayWindow setOpaque:NO];
-    [overlayWindow setHasShadow:YES];
-    [overlayWindow setBackgroundColor:[NSColor grayColor]];
-    [overlayWindow setAlphaValue:0.4];
-	[overlayWindow setMovableByWindowBackground:YES];
-	[overlayWindow setDelegate:self];
-	[overlayWindow makeKeyAndOrderFront:nil];
-
-	/* create the Exit button and add it to the overlay window */
-	NSRect buttonRect = NSMakeRect(25, 20, 100, 25);
-	NSButton *doneButton = [[NSButton alloc] initWithFrame:buttonRect];
-	[doneButton setTitle:@"Exit"];
-	[doneButton setAction:@selector(exitFullScreen:)];
-	[[overlayWindow contentView] addSubview:doneButton];
-	[doneButton release];
-
-	/* create the Play/Pause button and add it to the overlay window */
-	NSRect playbuttonRect = NSMakeRect(140, 20, 100, 25);
-	mPlayPauseFullscreenButton = [[NSButton alloc] initWithFrame:playbuttonRect];
-	if ([[mFullscreenMovieView movie] rate] != 0.0) {
-		[mPlayPauseFullscreenButton setTitle:@"Pause"];
-	} else {
-		[mPlayPauseFullscreenButton setTitle:@"Play"];
-	}
-	[mPlayPauseFullscreenButton setAction:@selector(playPauseFullscreenMovie:)];
-	[[overlayWindow contentView] addSubview:mPlayPauseFullscreenButton];
-
-    /* add the overlay window as a child window of the main window */
-    [mFullscreenWindow addChildWindow:overlayWindow ordered:NSWindowAbove];
-
-	[overlayWindow release];
-}
-
--(IBAction)goFullScreen:(id)sender 
-{
-	if (!mFullscreenView) {
-		[NSBundle loadNibNamed:@"FullScreen" owner:self];
-		[mFullscreenWindow retain];
-	}
-
-/*
-	Cocoa provides the enterFullScreenMode: method which
-    sets the receiver to full screen mode: 
-
-	@try {
-		NSDisableScreenUpdates();
-
-		[mMovieView setMovie:nil];
-		[mFullscreenMovieView setMovie:[mMovieView movie];
+		// Move movie view back to the main document window
+		[[movieView retain] autorelease];  // in case the superview has the only retain
+		[movieView removeFromSuperviewWithoutNeedingDisplay];
+		[movieView setFrame:mSavedMovieViewRect];
+		[[movieWindow contentView] addSubview:movieView];
 		
-		[mFullscreenView enterFullScreenMode:[[NSScreen screens] objectAtIndex:0] withOptions:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:NSNormalWindowLevel] forKey:NSFullScreenModeWindowLevel]];
-	}
-	@finally {
-		NSEnableScreenUpdates();
-	}
- 
-   However, there is currently a bug (r.6862814) which prevents 
-   this method from working with QTMovieView. Until the bug is 
-   fixed, use the code shown below to go full screen:
- 
-*/
-
-	/* Capture all attached displays to prevent other applications
-	 from trying to adjust to display changes. */
-	 
-    if (CGCaptureAllDisplays() != kCGErrorSuccess) {
-        return;
-    }
-
-    NSRect screenRect;
-	NSScreen *screen;
-	
-    screen = [[NSScreen screens] objectAtIndex:0];
-	screenRect = [screen frame];
-
-    mFullscreenWindow = [[NSWindow alloc] initWithContentRect:screenRect
-													styleMask:NSBorderlessWindowMask
-													  backing:NSBackingStoreBuffered
-														defer:NO screen:screen];
-    
-	QTMovie *movie = [[mMovieView movie] retain];
-	[mMovieView setMovie:nil];
-	[mFullscreenMovieView setMovie:movie];
-	[movie release];
-
-	/* Get the window level of the shield window for a captured display */
-	int windowLevel;
-	windowLevel = CGShieldingWindowLevel();
-	
-	[mFullscreenWindow setLevel:windowLevel];
-	[mFullscreenWindow setBackgroundColor:[NSColor blackColor]];
-	[mFullscreenWindow setReleasedWhenClosed:YES];
-
-	/* move the capture view into fullscreen */
-	[mFullscreenView retain];
-
-	[mFullscreenView removeFromSuperviewWithoutNeedingDisplay];
-	[[mFullscreenWindow contentView] addSubview:mFullscreenView];
-	[mFullscreenView release];
-	mSaveViewRect = [mFullscreenView frame]; /* remember the current rect/size */
-	[mFullscreenView setFrame:[[mFullscreenWindow contentView] bounds]];
-    [mFullscreenWindow setDelegate:self];
-    [mFullscreenWindow makeKeyAndOrderFront:nil];
-	
-	[self createButtonOverlayWindow];
+		// Get rid of the fullscreen windows
+		[mFullscreenWindowController close];
+		[mFullscreenWindowController release];
+		mFullscreenWindowController = nil;
+		
+		[mFullscreenOverlayWindowController close];
+		[mFullscreenOverlayWindowController release];
+		mFullscreenOverlayWindowController = nil;
+		
+		// Bring the main movie window back to the front
+		[movieWindow makeKeyAndOrderFront:self];
+		
+		// Restore previous presentation options
+		[NSApp setPresentationOptions:mSavedPresentationOptions];
+	}	
 }
 
--(IBAction)exitFullScreen:(id)sender 
+- (IBAction)toggleFullscreen:(id)sender 
 {
-
-/*
- Cocoa provides the exitFullScreenModeWithOptions: method which
- instructs the receiver to exit full screen mode:
-
-	@try {
-		NSDisableScreenUpdates();
-		[mFullscreenMovieView setMovie:nil];
-		[mMovieView setMovie:[mMovieView movie]];
-		[mFullscreenView exitFullScreenModeWithOptions:nil];
-	}
-	@finally {
-		NSEnableScreenUpdates();
-	}
- 
- However, there is currently a bug (r.6862814) which prevents 
- this method from working with QTMovieView. Until the bug is 
- fixed, use the code shown below to exit full screen mode:
- 
-*/
-	
-	CGReleaseAllDisplays();
-	
-	QTMovie *movie = [[mFullscreenMovieView movie] retain];
-	[mFullscreenMovieView setMovie:nil];
-	[mMovieView setMovie:movie];
-	[movie release];
-	
-	// move captureview back
-	[mFullscreenView retain];
-	[mFullscreenView removeFromSuperviewWithoutNeedingDisplay];
-	[[mFullscreenWindow contentView] addSubview:mFullscreenView];
-	[mFullscreenView release];
-	
-	[mPlayPauseFullscreenButton release];
-	mPlayPauseFullscreenButton = nil;
-	
-	[mFullscreenView setFrame:mSaveViewRect];
-	[mFullscreenWindow close];
-	mFullscreenWindow = nil;
-	mFullscreenView = nil;
-	
-	[mMovieWindow makeKeyAndOrderFront:self];	
+	[self setFullscreen:![self isFullscreen]];
 }
 
-@end
-
-@implementation ButtonOverlayWindow
-
--(BOOL)canBecomeKeyWindow 
+- (void)screenParametersDidChange:(NSNotification *)notification
 {
-	return YES;
-}
-
--(void)keyDown:(NSEvent *)theEvent 
-{
-    /* check if the Escape key is pressed */
-	if ([[theEvent characters] characterAtIndex:0] == 0x1B ) { //unicode 'esc'
-        /* exit fullscreen */
-        [(MyDocument *)[self delegate] exitFullScreen:self];
+	if ([[NSScreen screens] containsObject:mFullscreenScreen]) {
+		// The screen is still there, but may have changed resolution
+		
+		NSWindow *fullscreenWindow = [mFullscreenWindowController window];
+		NSRect screenRect = [mFullscreenScreen frame];
+		if (!NSEqualRects([fullscreenWindow frame], screenRect)) {
+			[fullscreenWindow setFrame:screenRect display:YES];
+			[self repositionOverlayWindow];
+		}
 	} else {
-		[super keyDown:theEvent];
+		// That other screen is gone now.  Our best bet is just to break out of fullscreen mode.
+		[self setFullscreen:NO];
 	}
+}
+
+- (void)repositionOverlayWindow
+{
+	NSRect fullscreenRect = [[mFullscreenWindowController window] frame];
+	NSWindow *overlayWindow = [mFullscreenOverlayWindowController window];
+	NSRect overlayRect = [overlayWindow frame];
+	[overlayWindow setFrameOrigin:NSMakePoint(NSMinX(fullscreenRect) + ((0.5f * NSWidth(fullscreenRect)) - (0.5f * NSWidth(overlayRect))), 0.15f * NSHeight(fullscreenRect))];	
 }
 
 @end

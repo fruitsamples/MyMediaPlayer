@@ -20,8 +20,13 @@ PACKAGING LIST:
 
 MyDocument.mMyDocument.h
 - NSDocument subclass that implements a fullscreen movie player. Displays a movie in a document window. Handles movie load states as they change. Implements Play, Pause and Fullscreen buttons.
-ButtonOverlayView.mButtonOverlayView.h
-- Implements a button overly window containing Exit and Pause buttons that resides on top of the fullscreen movie window.
+
+FullScreenWindow.m
+FullScreenWindow.h
+- Implements the fullscreen player window functionality. Handles ESC key or Cmd-period keys while in fullscreen mode.
+
+FullScreenOverlayWindowController.m
+FullScreenOverlayWindowController.h- Window controller for the fullscreen overlay window, handles the Play/Pause button.
 
 FullScreen.xib
 - The nib file containing the fullscreen window
@@ -36,6 +41,9 @@ MainMenu.xib
 
 ===========================================================================
 CHANGES FROM PREVIOUS VERSIONS:
+
+Version 2.0
+- Now handles screen resolution changes on the fly while in fullscreen mode. Command-F key toggles fullscreen. Updated to better demonstrate Cocoa coding best practices.
 
 Version 1.0
 - First version.

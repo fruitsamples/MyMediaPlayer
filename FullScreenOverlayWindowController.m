@@ -1,11 +1,12 @@
 /*
 
-File: MyDocument.h
+File: FullScreenOverlayWindowController.m
 
-Abstract: Interface file for MyDocument.m, a NSDocument subclass that
-          implements a fullscreen movie player.
+Abstract: Window controller for the fullscreen overlay window. Initializes
+		  the window, sets the play button to not change its title when it's 
+		  highlighted.
 
-Version: 2.0
+Version: 1.0
 
 Disclaimer: IMPORTANT:  This Apple software is supplied to you by 
 Apple Inc. ("Apple") in consideration of your agreement to the
@@ -49,37 +50,28 @@ Copyright (C) 2009 Apple Inc. All Rights Reserved.
 
 */
 
-#import <Cocoa/Cocoa.h>
+#import "FullScreenOverlayWindowController.h"
 
-@class QTMovie;
-@class QTMovieView;
-@class FullScreenOverlayWindowController;
+@implementation FullScreenOverlayWindowController
 
-@interface MyDocument : NSDocument
+- (id)init
 {
-@private
-	QTMovie								*mMovie;
-	float								mMovieRate;
-	
-	// main movie window
-	IBOutlet NSWindow					*movieWindow;
-	IBOutlet QTMovieView				*movieView;
-	IBOutlet NSButton					*playPauseButton;
-	IBOutlet NSTextField				*durationTextField;
-	
-	// full screen mode
-	BOOL								mFullscreen;
-	NSWindowController					*mFullscreenWindowController;
-	FullScreenOverlayWindowController	*mFullscreenOverlayWindowController;
-	NSScreen							*mFullscreenScreen;
-	NSRect								mSavedMovieViewRect;
-	NSApplicationPresentationOptions	mSavedPresentationOptions;
+	return [self initWithWindowNibName:@"FullScreenOverlayWindow"];
 }
 
-@property(readonly) QTMovie *movie;
-@property BOOL movieIsPlaying;
-
-- (IBAction)toggleFullscreen:(id)sender;
+- (void)windowDidLoad
+{
+	[super windowDidLoad];
+	
+	NSWindow *window = [self window];
+	[window setStyleMask:NSBorderlessWindowMask];
+	[window setAlphaValue:0.5f];
+	[window setMovableByWindowBackground:YES];
+	
+	// set the play button to not change its title when it's highlighted
+	NSButtonCell *playPauseButtonCell = (NSButtonCell *)[playPauseButton cell];
+	if ([playPauseButtonCell isKindOfClass:[NSButtonCell class]])
+		[playPauseButtonCell setHighlightsBy:([playPauseButtonCell highlightsBy] & ~NSContentsCellMask)];
+}
 
 @end
-

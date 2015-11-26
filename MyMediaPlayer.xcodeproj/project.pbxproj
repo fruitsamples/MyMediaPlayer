@@ -9,13 +9,15 @@
 /* Begin PBXBuildFile section */
 		1DDD582C0DA1D0D100B32029 /* MyDocument.xib in Resources */ = {isa = PBXBuildFile; fileRef = 1DDD58280DA1D0D100B32029 /* MyDocument.xib */; };
 		1DDD582D0DA1D0D100B32029 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 1DDD582A0DA1D0D100B32029 /* MainMenu.xib */; };
+		73CE660610A4CD9A00EF5827 /* FullScreenOverlayWindow.xib in Resources */ = {isa = PBXBuildFile; fileRef = 73CE660410A4CD9A00EF5827 /* FullScreenOverlayWindow.xib */; };
+		73CE660A10A4CDCA00EF5827 /* FullScreenOverlayWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 73CE660910A4CDCA00EF5827 /* FullScreenOverlayWindowController.m */; };
+		73CE678410A8F08400EF5827 /* FullScreenWindow.m in Sources */ = {isa = PBXBuildFile; fileRef = 73CE678310A8F08400EF5827 /* FullScreenWindow.m */; };
 		8D15AC2C0486D014006FF6A4 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 2A37F4B9FDCFA73011CA2CEA /* Credits.rtf */; };
 		8D15AC2F0486D014006FF6A4 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165FFE840EACC02AAC07 /* InfoPlist.strings */; };
 		8D15AC310486D014006FF6A4 /* MyDocument.m in Sources */ = {isa = PBXBuildFile; fileRef = 2A37F4ACFDCFA73011CA2CEA /* MyDocument.m */; settings = {ATTRIBUTES = (); }; };
 		8D15AC320486D014006FF6A4 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 2A37F4B0FDCFA73011CA2CEA /* main.m */; settings = {ATTRIBUTES = (); }; };
 		8D15AC340486D014006FF6A4 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A7FEA54F5311CA2CBB /* Cocoa.framework */; };
 		C581799F0EB66DF1008B8B65 /* QTKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C581799E0EB66DF1008B8B65 /* QTKit.framework */; };
-		C58B36470F8FF666003B3ED9 /* FullScreen.xib in Resources */ = {isa = PBXBuildFile; fileRef = C58B36450F8FF666003B3ED9 /* FullScreen.xib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,10 +33,14 @@
 		2A37F4C4FDCFA73011CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
 		2A37F4C5FDCFA73011CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		32DBCF750370BD2300C91783 /* MyMediaPlayer_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MyMediaPlayer_Prefix.pch; sourceTree = "<group>"; };
+		73CE660510A4CD9A00EF5827 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/FullScreenOverlayWindow.xib; sourceTree = "<group>"; };
+		73CE660810A4CDCA00EF5827 /* FullScreenOverlayWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FullScreenOverlayWindowController.h; sourceTree = "<group>"; };
+		73CE660910A4CDCA00EF5827 /* FullScreenOverlayWindowController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = FullScreenOverlayWindowController.m; sourceTree = "<group>"; };
+		73CE678210A8F08400EF5827 /* FullScreenWindow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FullScreenWindow.h; sourceTree = "<group>"; };
+		73CE678310A8F08400EF5827 /* FullScreenWindow.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = FullScreenWindow.m; sourceTree = "<group>"; };
 		8D15AC360486D014006FF6A4 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		8D15AC370486D014006FF6A4 /* MyMediaPlayer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyMediaPlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C581799E0EB66DF1008B8B65 /* QTKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QTKit.framework; path = /System/Library/Frameworks/QTKit.framework; sourceTree = "<absolute>"; };
-		C58B36460F8FF666003B3ED9 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/FullScreen.xib; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,6 +100,10 @@
 			children = (
 				2A37F4AEFDCFA73011CA2CEA /* MyDocument.h */,
 				2A37F4ACFDCFA73011CA2CEA /* MyDocument.m */,
+				73CE678210A8F08400EF5827 /* FullScreenWindow.h */,
+				73CE678310A8F08400EF5827 /* FullScreenWindow.m */,
+				73CE660810A4CDCA00EF5827 /* FullScreenOverlayWindowController.h */,
+				73CE660910A4CDCA00EF5827 /* FullScreenOverlayWindowController.m */,
 			);
 			name = Classes;
 			sourceTree = "<group>";
@@ -113,9 +123,9 @@
 				2A37F4B9FDCFA73011CA2CEA /* Credits.rtf */,
 				8D15AC360486D014006FF6A4 /* Info.plist */,
 				089C165FFE840EACC02AAC07 /* InfoPlist.strings */,
-				C58B36450F8FF666003B3ED9 /* FullScreen.xib */,
 				1DDD58280DA1D0D100B32029 /* MyDocument.xib */,
 				1DDD582A0DA1D0D100B32029 /* MainMenu.xib */,
+				73CE660410A4CD9A00EF5827 /* FullScreenOverlayWindow.xib */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -176,7 +186,7 @@
 				8D15AC2F0486D014006FF6A4 /* InfoPlist.strings in Resources */,
 				1DDD582C0DA1D0D100B32029 /* MyDocument.xib in Resources */,
 				1DDD582D0DA1D0D100B32029 /* MainMenu.xib in Resources */,
-				C58B36470F8FF666003B3ED9 /* FullScreen.xib in Resources */,
+				73CE660610A4CD9A00EF5827 /* FullScreenOverlayWindow.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -189,6 +199,8 @@
 			files = (
 				8D15AC310486D014006FF6A4 /* MyDocument.m in Sources */,
 				8D15AC320486D014006FF6A4 /* main.m in Sources */,
+				73CE660A10A4CDCA00EF5827 /* FullScreenOverlayWindowController.m in Sources */,
+				73CE678410A8F08400EF5827 /* FullScreenWindow.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -227,12 +239,12 @@
 			name = Credits.rtf;
 			sourceTree = "<group>";
 		};
-		C58B36450F8FF666003B3ED9 /* FullScreen.xib */ = {
+		73CE660410A4CD9A00EF5827 /* FullScreenOverlayWindow.xib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				C58B36460F8FF666003B3ED9 /* English */,
+				73CE660510A4CD9A00EF5827 /* English */,
 			);
-			name = FullScreen.xib;
+			name = FullScreenOverlayWindow.xib;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
