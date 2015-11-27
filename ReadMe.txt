@@ -8,7 +8,7 @@ Demonstrates how to play a movie fullscreen using QTKit on Mac OS X 10.6. Handle
 ===========================================================================
 BUILD REQUIREMENTS:
 
-Mac OS X 10.6
+Xcode 4
 
 ===========================================================================
 RUNTIME REQUIREMENTS:
@@ -42,6 +42,9 @@ MainMenu.xib
 ===========================================================================
 CHANGES FROM PREVIOUS VERSIONS:
 
+Version 2.1
+- Update for Xcode 4
+
 Version 2.0
 - Now handles screen resolution changes on the fly while in fullscreen mode. Command-F key toggles fullscreen. Updated to better demonstrate Cocoa coding best practices.
 
@@ -49,4 +52,4 @@ Version 1.0
 - First version.
 
 ===========================================================================
-Copyright (C) 2009 Apple Inc. All rights reserved.
+Copyright (C) 2009 - 2011 Apple Inc. All rights reserved.
